@@ -5,4 +5,3 @@ authors = ["taturou <taturou@gmail.com>"]
 
 [dependencies]
 rand = "0.3.14"
-cursive = "0.9"
