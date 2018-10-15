@@ -5,15 +5,15 @@ use self::rand::Rng;
 
 pub struct LifeGame {
     generation: usize,
-    world :Vec<bool>,
-    width: isize,
-    height: isize,
+    world :Vec<u8>,
+    width: usize,
+    height: usize,
     callback: Box<FnMut(CallbackInfo)>,
 }
 
 pub struct CellInfo {
-    pub x: isize,
-    pub y: isize,
+    pub x: usize,
+    pub y: usize,
     pub live: bool
 }
 
@@ -25,16 +25,16 @@ pub enum CallbackEvent {
 pub struct CallbackInfo {
     pub event: CallbackEvent,
     pub generation: usize,
-    pub width: isize,
-    pub height: isize,
+    pub width: usize,
+    pub height: usize,
     pub num_cells: usize,
     pub cell: Option<CellInfo>
 }
 
 impl LifeGame {
-    pub fn new(width: isize, height: isize) -> LifeGame {
-        let len = (width * height) as usize;
-        let world = vec![false; len];
+    pub fn new(width: usize, height: usize) -> LifeGame {
+        let len = width * height;
+        let world = vec![0; len];
 
         LifeGame {
             generation: 0,
@@ -45,86 +45,89 @@ impl LifeGame {
         }
     }
 
-    fn xy2i(&self, x: isize, y: isize) -> usize {
-        ((self.width * y) + x) as usize
+    fn xy2i(&self, x: usize, y: usize) -> usize {
+        (self.width * y) + x
     }
 
-    pub fn get(&self, x: isize, y: isize) -> bool {
-        let x = if x < 0 {
-            self.width + x
-        } else if x >= self.width {
-            x - self.width
-        } else {
-            x
-        };
-
-        let y = if y < 0 {
-            self.height + y
-        } else if y >= self.height {
-            y - self.height
-        } else {
-            y
-        };
-
+    fn get_raw(&self, x: usize, y: usize) -> u8 {
         let i = self.xy2i(x, y);
         self.world[i]
     }
 
-    fn get_as_num(&self, x: isize, y: isize) -> usize {
-        let live = self.get(x, y);
-        match live {
-            true => 1,
-            false => 0
-        }
+    pub fn get(&self, x: usize, y: usize) -> bool {
+        let live = self.get_raw(x, y);
+        if live == 1 { true } else { false }
     }
 
-    fn set_without_callback(&mut self, x: isize, y: isize, live: bool) {
+    fn set_raw(&mut self, x: usize, y: usize, live: u8) {
         let i = self.xy2i(x, y);
         self.world[i] = live;
     }
 
-    pub fn set(&mut self, x: isize, y: isize, live: bool) {
-        self.set_without_callback(x, y, live);
+    pub fn set(&mut self, x: usize, y: usize, live: bool) {
+        let live = if live { 1 } else { 0 };
+        self.set_raw(x, y, live);
         self.on_set(x, y, live);
     }
 
-    pub fn width(&self) -> isize {
+    pub fn width(&self) -> usize {
         self.width
     }
 
-    pub fn height(&self) -> isize {
+    pub fn height(&self) -> usize {
         self.height
     }
 
-    pub fn evolution(&mut self) -> &Self {
-        fn cell_evolution(game: &LifeGame , x: isize, y: isize) -> bool {
-            let mut count: usize = 0;
-            for j in (y-1)..(y+2) {
-                for i in (x-1)..(x+2) {
-                    count += game.get_as_num(i, j);
-                }
-            }
-            count -= game.get_as_num(x, y);
-
-            if game.get(x, y) {
-                match count {
-                    2 | 3 => true,
-                    0 | 1 => false,
-                    _     => false
-                }
+    fn coordinate_normalize(n: isize, max: usize) -> usize {
+        if n < 0 {
+            ((max as isize) + n) as usize
+        } else {
+            let n = n as usize;
+            if n >= max {
+                n - max
             } else {
-                match count {
-                    3 => true,
-                    _ => false
-                }
+                n
             }
         }
+    }
 
+    fn cell_evolution(&self, x: usize, y: usize) -> u8 {
+        let live = self.get_raw(x, y);
+        let x = x as isize;
+        let y = y as isize;
+        let width = self.width();
+        let height = self.height();
+
+        let mut count: u8 = 0;
+        for j in (y-1)..(y+2) {
+            for i in (x-1)..(x+2) {
+                let i = LifeGame::coordinate_normalize(i, width);
+                let j = LifeGame::coordinate_normalize(j, height);
+                count += self.get_raw(i, j);
+            }
+        }
+        count -= live;
+
+        if live == 1 {
+            match count {
+                2 | 3 => 1,
+                0 | 1 => 0,
+                _     => 0
+            }
+        } else {
+            match count {
+                3 => 1,
+                _ => 0
+            }
+        }
+    }
+
+    pub fn evolution(&mut self) -> &Self {
         let mut new = LifeGame::new(self.width, self.height);
         for y in 0..self.height {
             for x in 0..self.width {
-                let live = cell_evolution(self, x, y);
-                new.set_without_callback(x, y, live);
+                let live = self.cell_evolution(x, y);
+                new.set_raw(x, y, live);
             }
         }
         self.world = new.world;
@@ -134,9 +137,8 @@ impl LifeGame {
     }
 
     pub fn reset(&mut self) -> &Self {
-        for live in &mut self.world {
-            *live = false;
-        }
+        let len = self.width * self.height;
+        self.world = vec![0; len];
         self.set_generation(0);
         self
     }
@@ -146,11 +148,11 @@ impl LifeGame {
             for x in 0..self.width {
                 let live =
                     if rand::thread_rng().gen_range(0, 100) > 50 {
-                        true
+                        1
                     } else {
-                        false
+                        0
                     };
-                self.set_without_callback(x, y, live);
+                self.set_raw(x, y, live);
             }
         }
         self.set_generation(0);
@@ -185,7 +187,8 @@ impl LifeGame {
             });
     }
 
-    fn on_set(&mut self, x: isize, y: isize, live: bool) {
+    fn on_set(&mut self, x: usize, y: usize, live: u8) {
+        let live = if live == 1 { true } else { false };
         let num_cells = self.num_cells();
         (self.callback)(
             CallbackInfo {
@@ -199,7 +202,7 @@ impl LifeGame {
     }
 
     pub fn num_cells(&self) -> usize {
-        self.world.iter().fold(0, |n, &live| if live { n+1 } else { n })
+        self.world.iter().fold(0, |sum, &live| sum + (live as usize))
     }
 }
 
