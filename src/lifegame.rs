@@ -33,6 +33,10 @@ pub struct CallbackInfo {
 
 impl LifeGame {
     pub fn new(width: usize, height: usize) -> LifeGame {
+        if (width == 0) || (height == 0) {
+            panic!("Width or height must be not 0.");
+        }
+
         let len = width * height;
         let world = vec![0; len];
 
@@ -64,10 +68,11 @@ impl LifeGame {
         self.world[i] = live;
     }
 
-    pub fn set(&mut self, x: usize, y: usize, live: bool) {
+    pub fn set(&mut self, x: usize, y: usize, live: bool) -> &Self {
         let live = if live { 1 } else { 0 };
         self.set_raw(x, y, live);
         self.on_set(x, y, live);
+        self
     }
 
     pub fn width(&self) -> usize {
@@ -221,5 +226,364 @@ impl fmt::Display for LifeGame {
         }
 
         write!(f, "{}\n{}", summary, world)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_1x1() {
+        let game = LifeGame::new(1, 1);
+        assert_eq!(game.width(), 1);
+        assert_eq!(game.height(), 1);
+    }
+
+    #[test]
+    fn new_100x50() {
+        let game = LifeGame::new(100, 50);
+        assert_eq!(game.width(), 100);
+        assert_eq!(game.height(), 50);
+    }
+
+    #[test]
+    #[should_panic(expected = "Width or height must be not 0.")]
+    fn new_width_and_height_are_0() {
+        LifeGame::new(0, 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Width or height must be not 0.")]
+    fn new_width_is_0() {
+        LifeGame::new(1, 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Width or height must be not 0.")]
+    fn new_height_is_0() {
+        LifeGame::new(0, 1);
+    }
+
+    #[test]
+    fn get_default_value_is_false() {
+        let game = LifeGame::new(1, 1);
+        assert_eq!(game.get(0, 0), false);
+    }
+
+    #[test]
+    #[should_panic]
+    fn get_x_over_width() {
+        let game = LifeGame::new(1, 1);
+        game.get(1, 0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn get_y_over_height() {
+        let game = LifeGame::new(1, 1);
+        game.get(0, 1);
+    }
+
+    #[test]
+    fn set_to_true_and_get() {
+        let mut game = LifeGame::new(1, 1);
+        game.set(0, 0, true);
+        assert_eq!(game.get(0, 0), true);
+    }
+
+    #[test]
+    fn set_to_false_and_get() {
+        let mut game = LifeGame::new(1, 1);
+        game.set(0, 0, true);
+        game.set(0, 0, false);
+        assert_eq!(game.get(0, 0), false);
+    }
+
+    #[test]
+    #[should_panic]
+    fn set_x_over_width() {
+        let mut game = LifeGame::new(1, 1);
+        game.set(1, 0, true);
+    }
+
+    #[test]
+    #[should_panic]
+    fn set_y_over_height() {
+        let mut game = LifeGame::new(1, 1);
+        game.set(0, 1, true);
+    }
+
+    #[test]
+    fn reset() {
+        let mut game = LifeGame::new(1, 1);
+        game.set(0, 0, true);
+        game.reset();
+        assert_eq!(game.get(0, 0), false);
+    }
+
+    #[test]
+    fn num_cells_default_is_0() {
+        let game = LifeGame::new(1, 1);
+        assert_eq!(game.num_cells(), 0);
+    }
+
+    #[test]
+    fn num_cells_is_1() {
+        let mut game = LifeGame::new(1, 1);
+        game.set(0, 0, true);
+        assert_eq!(game.num_cells(), 1);
+    }
+
+    #[test]
+    fn num_cells_is_5000() {
+        let mut game = LifeGame::new(100, 50);
+        for y in 0..game.height() {
+            for x in 0..game.width() {
+                game.set(x, y, true);
+            }
+        }
+        assert_eq!(game.num_cells(), 100 * 50);
+    }
+
+    #[test]
+    fn evolution_with_generation() {
+        TBD
+    }
+
+    #[test]
+    fn evolution_with_survival() {
+        TBD
+    }
+
+    #[test]
+    fn evolution_with_dead_by_depopulation_0() {
+        let mut game = LifeGame::new(3, 3);
+        game.evolution();
+
+        assert_eq!(game.get(0, 0), false);
+        assert_eq!(game.get(1, 0), false);
+        assert_eq!(game.get(2, 0), false);
+        assert_eq!(game.get(0, 1), false);
+        assert_eq!(game.get(1, 1), false);
+        assert_eq!(game.get(2, 1), false);
+        assert_eq!(game.get(0, 2), false);
+        assert_eq!(game.get(1, 2), false);
+        assert_eq!(game.get(2, 2), false);
+    }
+
+    #[test]
+    fn evolution_with_dead_by_depopulation_1() {
+        let mut game = LifeGame::new(3, 3);
+        game.set(1, 1, true);
+        game.evolution();
+
+        assert_eq!(game.get(0, 0), false);
+        assert_eq!(game.get(1, 0), false);
+        assert_eq!(game.get(2, 0), false);
+        assert_eq!(game.get(0, 1), false);
+        assert_eq!(game.get(1, 1), false);
+        assert_eq!(game.get(2, 1), false);
+        assert_eq!(game.get(0, 2), false);
+        assert_eq!(game.get(1, 2), false);
+        assert_eq!(game.get(2, 2), false);
+    }
+
+    #[test]
+    fn evolution_with_dead_by_depopulation_2() {
+        let mut game = LifeGame::new(3, 3);
+        game.set(1, 1, true);
+        game.set(1, 0, true);
+        game.evolution();
+
+        assert_eq!(game.get(0, 0), false);
+        assert_eq!(game.get(1, 0), false);
+        assert_eq!(game.get(2, 0), false);
+        assert_eq!(game.get(0, 1), false);
+        assert_eq!(game.get(1, 1), false);
+        assert_eq!(game.get(2, 1), false);
+        assert_eq!(game.get(0, 2), false);
+        assert_eq!(game.get(1, 2), false);
+        assert_eq!(game.get(2, 2), false);
+    }
+
+    #[test]
+    fn evolution_with_dead_by_depopulation_3() {
+        let mut game = LifeGame::new(3, 3);
+        game.set(1, 1, true);
+        game.set(0, 0, true);
+        game.evolution();
+
+        assert_eq!(game.get(0, 0), false);
+        assert_eq!(game.get(1, 0), false);
+        assert_eq!(game.get(2, 0), false);
+        assert_eq!(game.get(0, 1), false);
+        assert_eq!(game.get(1, 1), false);
+        assert_eq!(game.get(2, 1), false);
+        assert_eq!(game.get(0, 2), false);
+        assert_eq!(game.get(1, 2), false);
+        assert_eq!(game.get(2, 2), false);
+    }
+
+    #[test]
+    fn evolution_with_dead_by_overpopulation_1() {
+        let mut game = LifeGame::new(3, 3);
+        game.set(1, 1, true);
+        game.set(0, 0, true);
+        game.set(1, 0, true);
+        game.set(2, 0, true);
+        game.set(0, 1, true);
+        game.evolution();
+
+        assert_eq!(game.get(0, 0), false);
+        assert_eq!(game.get(1, 0), false);
+        assert_eq!(game.get(2, 0), false);
+        assert_eq!(game.get(0, 1), false);
+        assert_eq!(game.get(1, 1), false);
+        assert_eq!(game.get(2, 1), false);
+        assert_eq!(game.get(0, 2), false);
+        assert_eq!(game.get(1, 2), false);
+        assert_eq!(game.get(2, 2), false);
+    }
+
+    #[test]
+    fn evolution_with_dead_by_overpopulation_2() {
+        let mut game = LifeGame::new(3, 3);
+        game.set(1, 1, true);
+        game.set(0, 0, true);
+        game.set(1, 0, true);
+        game.set(2, 0, true);
+        game.set(0, 1, true);
+        game.set(2, 1, true);
+        game.evolution();
+
+        assert_eq!(game.get(0, 0), false);
+        assert_eq!(game.get(1, 0), false);
+        assert_eq!(game.get(2, 0), false);
+        assert_eq!(game.get(0, 1), false);
+        assert_eq!(game.get(1, 1), false);
+        assert_eq!(game.get(2, 1), false);
+        assert_eq!(game.get(0, 2), false);
+        assert_eq!(game.get(1, 2), false);
+        assert_eq!(game.get(2, 2), false);
+    }
+
+    #[test]
+    fn evolution_with_dead_by_overpopulation_3() {
+        let mut game = LifeGame::new(3, 3);
+        game.set(1, 1, true);
+        game.set(0, 0, true);
+        game.set(1, 0, true);
+        game.set(2, 0, true);
+        game.set(0, 1, true);
+        game.set(2, 1, true);
+        game.set(0, 2, true);
+        game.evolution();
+
+        assert_eq!(game.get(0, 0), false);
+        assert_eq!(game.get(1, 0), false);
+        assert_eq!(game.get(2, 0), false);
+        assert_eq!(game.get(0, 1), false);
+        assert_eq!(game.get(1, 1), false);
+        assert_eq!(game.get(2, 1), false);
+        assert_eq!(game.get(0, 2), false);
+        assert_eq!(game.get(1, 2), false);
+        assert_eq!(game.get(2, 2), false);
+    }
+
+    #[test]
+    fn evolution_with_dead_by_overpopulation_4() {
+        let mut game = LifeGame::new(3, 3);
+        game.set(1, 1, true);
+        game.set(0, 0, true);
+        game.set(1, 0, true);
+        game.set(2, 0, true);
+        game.set(0, 1, true);
+        game.set(2, 1, true);
+        game.set(0, 2, true);
+        game.set(1, 2, true);
+        game.evolution();
+
+        assert_eq!(game.get(0, 0), false);
+        assert_eq!(game.get(1, 0), false);
+        assert_eq!(game.get(2, 0), false);
+        assert_eq!(game.get(0, 1), false);
+        assert_eq!(game.get(1, 1), false);
+        assert_eq!(game.get(2, 1), false);
+        assert_eq!(game.get(0, 2), false);
+        assert_eq!(game.get(1, 2), false);
+        assert_eq!(game.get(2, 2), false);
+    }
+
+    #[test]
+    fn evolution_with_dead_by_overpopulation_5() {
+        let mut game = LifeGame::new(3, 3);
+        game.set(1, 1, true);
+        game.set(0, 0, true);
+        game.set(1, 0, true);
+        game.set(2, 0, true);
+        game.set(0, 1, true);
+        game.set(2, 1, true);
+        game.set(0, 2, true);
+        game.set(1, 2, true);
+        game.set(2, 2, true);
+        game.evolution();
+
+        assert_eq!(game.get(0, 0), false);
+        assert_eq!(game.get(1, 0), false);
+        assert_eq!(game.get(2, 0), false);
+        assert_eq!(game.get(0, 1), false);
+        assert_eq!(game.get(1, 1), false);
+        assert_eq!(game.get(2, 1), false);
+        assert_eq!(game.get(0, 2), false);
+        assert_eq!(game.get(1, 2), false);
+        assert_eq!(game.get(2, 2), false);
+    }
+
+    #[test]
+    fn evolution_with_dead_by_overpopulation_roll() {
+        let mut game = LifeGame::new(3, 3);
+        game.set(0, 0, true);
+        game.set(1, 0, true);
+        game.set(2, 0, true);
+        game.set(0, 2, true);
+        game.set(1, 2, true);
+        game.evolution();
+
+        assert_eq!(game.get(0, 0), false);
+        assert_eq!(game.get(1, 0), false);
+        assert_eq!(game.get(2, 0), false);
+        assert_eq!(game.get(0, 1), false);
+        assert_eq!(game.get(1, 1), false);
+        assert_eq!(game.get(2, 1), false);
+        assert_eq!(game.get(0, 2), false);
+        assert_eq!(game.get(1, 2), false);
+        assert_eq!(game.get(2, 2), false);
+    }
+
+    #[test]
+    fn generation_default_is_0() {
+        let game = LifeGame::new(1, 1);
+        assert_eq!(game.generation(), 0);
+    }
+
+    #[test]
+    fn generation_is_0_after_reset() {
+        let mut game = LifeGame::new(1, 1);
+        game.evolution();
+        game.reset();
+        assert_eq!(game.generation(), 0);
+    }
+
+    #[test]
+    fn generation_is_0_after_reset_by_rand() {
+        let mut game = LifeGame::new(1, 1);
+        game.evolution();
+        game.reset_by_rand();
+        assert_eq!(game.generation(), 0);
+    }
+
+    #[test]
+    fn callback() {
     }
 }
