@@ -20,7 +20,7 @@ Add dependence to the `Cargo.toml` in your project.
 ```toml
 [dependencies.lifegame]
 git = "https://github.com/taturou/lifegame-core.git"
-rev = "HEAD"
+rev = "ver2.0.0"
 ```
 
 Use the crate.
