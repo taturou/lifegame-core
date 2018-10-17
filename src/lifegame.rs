@@ -348,16 +348,87 @@ mod tests {
 
     #[test]
     fn evolution_with_generation() {
-        TBD
+        /* .....    .....
+         * .....    ..o..
+         * .ooo. -> ..o..
+         * .....    ..o..
+         * .....    .....
+         */
+        let mut game = LifeGame::new(5, 5);
+        game.set(1, 2, true);
+        game.set(2, 2, true);
+        game.set(3, 2, true);
+        game.evolution();
+
+        assert_eq!(game.get(0, 0), false);
+        assert_eq!(game.get(1, 0), false);
+        assert_eq!(game.get(2, 0), false);
+        assert_eq!(game.get(3, 0), false);
+        assert_eq!(game.get(4, 0), false);
+
+        assert_eq!(game.get(0, 1), false);
+        assert_eq!(game.get(1, 1), false);
+        assert_eq!(game.get(2, 1), true);
+        assert_eq!(game.get(3, 1), false);
+        assert_eq!(game.get(4, 1), false);
+
+        assert_eq!(game.get(0, 2), false);
+        assert_eq!(game.get(1, 2), false);
+        assert_eq!(game.get(2, 2), true);
+        assert_eq!(game.get(3, 2), false);
+        assert_eq!(game.get(4, 2), false);
+
+        assert_eq!(game.get(0, 3), false);
+        assert_eq!(game.get(1, 3), false);
+        assert_eq!(game.get(2, 3), true);
+        assert_eq!(game.get(3, 3), false);
+        assert_eq!(game.get(4, 3), false);
+
+        assert_eq!(game.get(0, 4), false);
+        assert_eq!(game.get(1, 4), false);
+        assert_eq!(game.get(2, 4), false);
+        assert_eq!(game.get(3, 4), false);
+        assert_eq!(game.get(4, 4), false);
     }
 
     #[test]
     fn evolution_with_survival() {
-        TBD
+        /* ....      ....
+         * .oo.  ->  .oo.
+         * .oo.  ->  .oo.
+         * ....      ....
+         */
+        let mut game = LifeGame::new(4, 4);
+        game.set(1, 1, true);
+        game.set(2, 1, true);
+        game.set(1, 2, true);
+        game.set(2, 2, true);
+        game.evolution();
+
+        assert_eq!(game.get(0, 0), false);
+        assert_eq!(game.get(1, 0), false);
+        assert_eq!(game.get(2, 0), false);
+        assert_eq!(game.get(3, 0), false);
+        assert_eq!(game.get(0, 1), false);
+        assert_eq!(game.get(1, 1), true);
+        assert_eq!(game.get(2, 1), true);
+        assert_eq!(game.get(3, 1), false);
+        assert_eq!(game.get(0, 2), false);
+        assert_eq!(game.get(1, 2), true);
+        assert_eq!(game.get(2, 2), true);
+        assert_eq!(game.get(3, 2), false);
+        assert_eq!(game.get(0, 3), false);
+        assert_eq!(game.get(1, 3), false);
+        assert_eq!(game.get(2, 3), false);
+        assert_eq!(game.get(3, 3), false);
     }
 
     #[test]
     fn evolution_with_dead_by_depopulation_0() {
+        /* ...      ...
+         * ...  ->  ...
+         * ...      ...
+         */
         let mut game = LifeGame::new(3, 3);
         game.evolution();
 
@@ -374,6 +445,10 @@ mod tests {
 
     #[test]
     fn evolution_with_dead_by_depopulation_1() {
+        /* ...      ...
+         * .o.  ->  ...
+         * ...      ...
+         */
         let mut game = LifeGame::new(3, 3);
         game.set(1, 1, true);
         game.evolution();
@@ -391,6 +466,10 @@ mod tests {
 
     #[test]
     fn evolution_with_dead_by_depopulation_2() {
+        /* .o.      ...
+         * .o.  ->  ...
+         * ...      ...
+         */
         let mut game = LifeGame::new(3, 3);
         game.set(1, 1, true);
         game.set(1, 0, true);
@@ -409,6 +488,10 @@ mod tests {
 
     #[test]
     fn evolution_with_dead_by_depopulation_3() {
+        /* o..      ...
+         * .o.  ->  ...
+         * ...      ...
+         */
         let mut game = LifeGame::new(3, 3);
         game.set(1, 1, true);
         game.set(0, 0, true);
@@ -427,6 +510,10 @@ mod tests {
 
     #[test]
     fn evolution_with_dead_by_overpopulation_1() {
+        /* ooo      ...
+         * oo.  ->  ...
+         * ...      ...
+         */
         let mut game = LifeGame::new(3, 3);
         game.set(1, 1, true);
         game.set(0, 0, true);
@@ -448,6 +535,10 @@ mod tests {
 
     #[test]
     fn evolution_with_dead_by_overpopulation_2() {
+        /* ooo      ...
+         * ooo  ->  ...
+         * ...      ...
+         */
         let mut game = LifeGame::new(3, 3);
         game.set(1, 1, true);
         game.set(0, 0, true);
@@ -470,6 +561,10 @@ mod tests {
 
     #[test]
     fn evolution_with_dead_by_overpopulation_3() {
+        /* ooo      ...
+         * ooo  ->  ...
+         * o..      ...
+         */
         let mut game = LifeGame::new(3, 3);
         game.set(1, 1, true);
         game.set(0, 0, true);
@@ -493,6 +588,10 @@ mod tests {
 
     #[test]
     fn evolution_with_dead_by_overpopulation_4() {
+        /* ooo      ...
+         * ooo  ->  ...
+         * oo.      ...
+         */
         let mut game = LifeGame::new(3, 3);
         game.set(1, 1, true);
         game.set(0, 0, true);
@@ -517,6 +616,10 @@ mod tests {
 
     #[test]
     fn evolution_with_dead_by_overpopulation_5() {
+        /* ooo      ...
+         * ooo  ->  ...
+         * ooo      ...
+         */
         let mut game = LifeGame::new(3, 3);
         game.set(1, 1, true);
         game.set(0, 0, true);
@@ -542,6 +645,10 @@ mod tests {
 
     #[test]
     fn evolution_with_dead_by_overpopulation_roll() {
+        /* ooo      ...
+         * ...  ->  ...
+         * oo.      ...
+         */
         let mut game = LifeGame::new(3, 3);
         game.set(0, 0, true);
         game.set(1, 0, true);
