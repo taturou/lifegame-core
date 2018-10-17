@@ -11,17 +11,20 @@ pub struct LifeGame {
     callback: Box<FnMut(CallbackInfo)>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct CellInfo {
     pub x: usize,
     pub y: usize,
     pub live: bool
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum CallbackEvent {
     Set,
     Evolution
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct CallbackInfo {
     pub event: CallbackEvent,
     pub generation: usize,
@@ -232,6 +235,7 @@ impl fmt::Display for LifeGame {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn new_1x1() {
@@ -692,5 +696,45 @@ mod tests {
 
     #[test]
     fn callback() {
+        let info: Arc<Mutex<Option<CallbackInfo>>> = Arc::new(Mutex::new(None));
+        let infocb = info.clone();
+
+        let mut game = LifeGame::new(3, 3)
+                        .set_callback(move |i| {
+                            let mut info = infocb.lock().unwrap();
+                            *info = Some(i);
+                        });
+        {
+            let info = info.lock().unwrap();
+            assert_eq!(*info, None);
+        }
+
+        game.set(0, 0, true);
+        {
+            let info = info.lock().unwrap();
+            assert_eq!(*info,
+                       Some(CallbackInfo {
+                               event: CallbackEvent::Set,
+                               generation: 0,
+                               width: game.width(),
+                               height: game.height(),
+                               num_cells: 1,
+                               cell: Some(CellInfo{ x:0, y:0, live:true })
+                       }));
+        }
+
+        game.evolution();
+        {
+            let info = info.lock().unwrap();
+            assert_eq!(*info,
+                       Some(CallbackInfo {
+                               event: CallbackEvent::Evolution,
+                               generation: 1,
+                               width: game.width(),
+                               height: game.height(),
+                               num_cells: 0,
+                               cell: None
+                       }));
+        }
     }
 }
