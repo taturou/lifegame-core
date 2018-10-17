@@ -60,7 +60,7 @@ impl LifeGame {
 
     pub fn get(&self, x: usize, y: usize) -> bool {
         let live = self.get_raw(x, y);
-        if live == 1 { true } else { false }
+        live == 1
     }
 
     fn set_raw(&mut self, x: usize, y: usize, live: u8) {
