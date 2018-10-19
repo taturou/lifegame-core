@@ -34,6 +34,12 @@ pub struct CallbackInfo {
     pub cell: Option<CellInfo>
 }
 
+pub struct LifeGameIter<'a> {
+    pos: usize,
+    max: usize,
+    game: &'a LifeGame
+}
+
 impl LifeGame {
     pub fn new(width: usize, height: usize) -> LifeGame {
         if (width == 0) || (height == 0) {
@@ -212,6 +218,15 @@ impl LifeGame {
     pub fn num_cells(&self) -> usize {
         self.world.iter().fold(0, |sum, &live| sum + (live as usize))
     }
+
+    pub fn iter(&self) -> LifeGameIter {
+        let iter = LifeGameIter {
+                        pos: 0,
+                        max: self.width() * self.height(),
+                        game: self
+                    };
+        iter
+    }
 }
 
 impl fmt::Display for LifeGame {
@@ -229,6 +244,30 @@ impl fmt::Display for LifeGame {
         }
 
         write!(f, "{}\n{}", summary, world)
+    }
+}
+
+impl<'a> IntoIterator for &'a LifeGame {
+    type Item = (usize, usize, bool);
+    type IntoIter = LifeGameIter<'a>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a> Iterator for LifeGameIter<'a> {
+    type Item = (usize, usize, bool);
+    fn next (&mut self) -> Option<(usize, usize, bool)> {
+        if self.pos >= self.max {
+            return None;
+        }
+
+        let x = self.pos % self.game.width();
+        let y = self.pos / self.game.width();
+        self.pos += 1;
+
+        let item = (x, y, self.game.get(x, y));
+        Some(item)
     }
 }
 
@@ -736,5 +775,19 @@ mod tests {
                                cell: None
                        }));
         }
+    }
+
+    #[test]
+    fn iter() {
+        let mut game = LifeGame::new(2, 2);
+        game.set(0, 0, true);
+        game.set(1, 1, true);
+
+        let mut iter = game.iter();
+        assert_eq!(iter.next(), Some((0,0,true)));
+        assert_eq!(iter.next(), Some((1,0,false)));
+        assert_eq!(iter.next(), Some((0,1,false)));
+        assert_eq!(iter.next(), Some((1,1,true)));
+        assert_eq!(iter.next(), None);
     }
 }
