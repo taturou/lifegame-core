@@ -264,10 +264,10 @@ impl<'a> Iterator for LifeGameIter<'a> {
 
         let x = self.pos % self.game.width();
         let y = self.pos / self.game.width();
+        let cell = self.game.world[self.pos] == 1;
         self.pos += 1;
 
-        let item = (x, y, self.game.get(x, y));
-        Some(item)
+        Some((x, y, cell))
     }
 }
 
