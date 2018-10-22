@@ -20,6 +20,7 @@ pub struct CellInfo {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CallbackEvent {
+    Reset,
     Set,
     Evolution
 }
@@ -146,15 +147,16 @@ impl LifeGame {
             }
         }
         self.world = new.world;
-        let new_generation = self.generation() + 1;
-        self.set_generation(new_generation);
+        self.generation = self.generation() + 1;
+        self.on_evolution();
         self
     }
 
     pub fn reset(&mut self) -> &Self {
         let len = self.width * self.height;
         self.world = vec![0; len];
-        self.set_generation(0);
+        self.generation = 0;
+        self.on_reset();
         self
     }
 
@@ -170,17 +172,13 @@ impl LifeGame {
                 self.set_raw(x, y, live);
             }
         }
-        self.set_generation(0);
+        self.generation = 0;
+        self.on_reset();
         self
     }
 
     pub fn generation(&self) -> usize {
         self.generation
-    }
-
-    fn set_generation(&mut self, generation: usize) {
-        self.generation = generation;
-        self.on_evolution();
     }
 
     pub fn set_callback<F>(mut self, callback: F) -> Self
@@ -189,18 +187,18 @@ impl LifeGame {
         self
     }
 
-    fn on_evolution(&mut self) {
+    fn on_reset(&mut self) {
         let num_cells = self.num_cells();
         (self.callback)(
             CallbackInfo {
-                event: CallbackEvent::Evolution,
+                event: CallbackEvent::Reset,
                 generation: self.generation,
                 width: self.width,
                 height: self.height,
                 num_cells: num_cells,
                 cell: None
             });
-    }
+	}
 
     fn on_set(&mut self, x: usize, y: usize, live: u8) {
         let live = if live == 1 { true } else { false };
@@ -213,6 +211,19 @@ impl LifeGame {
                 height: self.height,
                 num_cells: num_cells,
                 cell: Some(CellInfo { x, y, live })
+            });
+    }
+
+    fn on_evolution(&mut self) {
+        let num_cells = self.num_cells();
+        (self.callback)(
+            CallbackInfo {
+                event: CallbackEvent::Evolution,
+                generation: self.generation,
+                width: self.width,
+                height: self.height,
+                num_cells: num_cells,
+                cell: None
             });
     }
 
@@ -790,6 +801,36 @@ mod tests {
                                width: game.width(),
                                height: game.height(),
                                num_cells: 0,
+                               cell: None
+                       }));
+        }
+
+        game.reset();
+        {
+            let info = info.lock().unwrap();
+            assert_eq!(*info,
+                       Some(CallbackInfo {
+                               event: CallbackEvent::Reset,
+                               generation: 0,
+                               width: game.width(),
+                               height: game.height(),
+                               num_cells: 0,
+                               cell: None
+                       }));
+        }
+
+        game.evolution();
+        game.reset_by_rand();
+        {
+            let num_cells = game.num_cells();
+            let info = info.lock().unwrap();
+            assert_eq!(*info,
+                       Some(CallbackInfo {
+                               event: CallbackEvent::Reset,
+                               generation: 0,
+                               width: game.width(),
+                               height: game.height(),
+                               num_cells: num_cells,
                                cell: None
                        }));
         }
