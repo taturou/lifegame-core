@@ -37,6 +37,7 @@ pub struct CallbackInfo {
 pub struct LifeGameIter<'a> {
     pos: usize,
     max: usize,
+    live: Option<bool>,
     game: &'a LifeGame
 }
 
@@ -223,6 +224,17 @@ impl LifeGame {
         let iter = LifeGameIter {
                         pos: 0,
                         max: self.width() * self.height(),
+                        live: None,
+                        game: self
+                    };
+        iter
+    }
+
+    pub fn iter_filter_live(&self, live: bool) -> LifeGameIter {
+        let iter = LifeGameIter {
+                        pos: 0,
+                        max: self.width() * self.height(),
+                        live: Some(live),
                         game: self
                     };
         iter
@@ -258,16 +270,22 @@ impl<'a> IntoIterator for &'a LifeGame {
 impl<'a> Iterator for LifeGameIter<'a> {
     type Item = (usize, usize, bool);
     fn next (&mut self) -> Option<(usize, usize, bool)> {
-        if self.pos >= self.max {
-            return None;
+        loop {
+            if self.pos >= self.max {
+                return None;
+            }
+
+            let pos = self.pos;
+            self.pos += 1;
+
+            let cell = self.game.world[pos] == 1;
+            if (self.live == None) || (self.live == Some(cell)) {
+                let x = pos % self.game.width();
+                let y = pos / self.game.width();
+
+                return Some((x, y, cell));
+            }
         }
-
-        let x = self.pos % self.game.width();
-        let y = self.pos / self.game.width();
-        let cell = self.game.world[self.pos] == 1;
-        self.pos += 1;
-
-        Some((x, y, cell))
     }
 }
 
@@ -788,6 +806,30 @@ mod tests {
         assert_eq!(iter.next(), Some((1,0,false)));
         assert_eq!(iter.next(), Some((0,1,false)));
         assert_eq!(iter.next(), Some((1,1,true)));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn iter_filter_live_true() {
+        let mut game = LifeGame::new(2, 2);
+        game.set(0, 0, true);
+        game.set(1, 1, true);
+
+        let mut iter = game.iter_filter_live(true);
+        assert_eq!(iter.next(), Some((0,0,true)));
+        assert_eq!(iter.next(), Some((1,1,true)));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn iter_filter_live_false() {
+        let mut game = LifeGame::new(2, 2);
+        game.set(0, 0, true);
+        game.set(1, 1, true);
+
+        let mut iter = game.iter_filter_live(false);
+        assert_eq!(iter.next(), Some((1,0,false)));
+        assert_eq!(iter.next(), Some((0,1,false)));
         assert_eq!(iter.next(), None);
     }
 }
