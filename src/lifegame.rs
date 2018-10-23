@@ -35,7 +35,14 @@ pub struct CallbackInfo {
     pub cell: Option<CellInfo>
 }
 
-pub struct LifeGameIter<'a> {
+pub struct LifeGameIterBool<'a> {
+    pos: usize,
+    max: usize,
+    live: Option<bool>,
+    game: &'a LifeGame
+}
+
+pub struct LifeGameIterU8<'a> {
     pos: usize,
     max: usize,
     live: Option<bool>,
@@ -64,24 +71,24 @@ impl LifeGame {
         (self.width * y) + x
     }
 
-    fn get_raw(&self, x: usize, y: usize) -> u8 {
+    fn get_as_u8(&self, x: usize, y: usize) -> u8 {
         let i = self.xy2i(x, y);
         self.world[i]
     }
 
     pub fn get(&self, x: usize, y: usize) -> bool {
-        let live = self.get_raw(x, y);
-        live == 1
+        let live = self.get_as_u8(x, y);
+        live > 0
     }
 
-    fn set_raw(&mut self, x: usize, y: usize, live: u8) {
+    fn set_u8(&mut self, x: usize, y: usize, live: u8) {
         let i = self.xy2i(x, y);
         self.world[i] = live;
     }
 
     pub fn set(&mut self, x: usize, y: usize, live: bool) -> &Self {
         let live = if live { 1 } else { 0 };
-        self.set_raw(x, y, live);
+        self.set_u8(x, y, live);
         self.on_set(x, y, live);
         self
     }
@@ -107,8 +114,7 @@ impl LifeGame {
         }
     }
 
-    fn cell_evolution(&self, x: usize, y: usize) -> u8 {
-        let live = self.get_raw(x, y);
+    fn neighbors_lives(&self, x: usize, y: usize) -> u8 {
         let x = x as isize;
         let y = y as isize;
         let width = self.width();
@@ -119,12 +125,22 @@ impl LifeGame {
             for i in (x-1)..(x+2) {
                 let i = LifeGame::coordinate_normalize(i, width);
                 let j = LifeGame::coordinate_normalize(j, height);
-                count += self.get_raw(i, j);
+                if self.get(i, j) {
+                    count += 1;
+                }
             }
         }
-        count -= live;
+        if self.get(x as usize, y as usize) {
+            count -= 1;
+        }
+        count
+    }
 
-        if live == 1 {
+    fn cell_evolution(&self, x: usize, y: usize) -> u8 {
+        let live = self.get(x, y);
+        let count = self.neighbors_lives(x, y);
+
+        if live {
             match count {
                 2 | 3 => 1,
                 0 | 1 => 0,
@@ -143,12 +159,24 @@ impl LifeGame {
         for y in 0..self.height {
             for x in 0..self.width {
                 let live = self.cell_evolution(x, y);
-                new.set_raw(x, y, live);
+                new.set_u8(x, y, live);
             }
         }
         self.world = new.world;
         self.generation = self.generation() + 1;
         self.on_evolution();
+        self
+    }
+
+    fn update_to_neighbors_lives(&mut self) -> &Self {
+        for y in 0..self.height {
+            for x in 0..self.width {
+                if self.get(x, y) {
+                    let lives = self.neighbors_lives(x, y);
+                    self.set_u8(x, y, lives);
+                }
+            }
+        }
         self
     }
 
@@ -169,7 +197,7 @@ impl LifeGame {
                     } else {
                         0
                     };
-                self.set_raw(x, y, live);
+                self.set_u8(x, y, live);
             }
         }
         self.generation = 0;
@@ -198,7 +226,7 @@ impl LifeGame {
                 num_cells: num_cells,
                 cell: None
             });
-	}
+    }
 
     fn on_set(&mut self, x: usize, y: usize, live: u8) {
         let live = if live == 1 { true } else { false };
@@ -231,8 +259,19 @@ impl LifeGame {
         self.world.iter().fold(0, |sum, &live| sum + (live as usize))
     }
 
-    pub fn iter(&self, live: Option<bool>) -> LifeGameIter {
-        let iter = LifeGameIter {
+    pub fn iter(&self, live: Option<bool>) -> LifeGameIterBool {
+        let iter = LifeGameIterBool {
+                        pos: 0,
+                        max: self.width() * self.height(),
+                        live: live,
+                        game: self
+                    };
+        iter
+    }
+
+    pub fn iter_as_u8(&mut self, live: Option<bool>) -> LifeGameIterU8 {
+        self.update_to_neighbors_lives();
+        let iter = LifeGameIterU8 {
                         pos: 0,
                         max: self.width() * self.height(),
                         live: live,
@@ -249,8 +288,9 @@ impl fmt::Display for LifeGame {
         let mut world = String::new();
         for y in 0..self.height {
             for x in 0..self.width {
-                let live = self.get(x, y);
-                let cell = if live { "o " } else { "x " };
+                //let live = self.get(x, y);
+                //let cell = if live { "o " } else { "x " };
+                let cell = &self.get_as_u8(x, y).to_string();
                 world.push_str(cell);
             }
             world.push_str("\n");
@@ -260,15 +300,7 @@ impl fmt::Display for LifeGame {
     }
 }
 
-impl<'a> IntoIterator for &'a LifeGame {
-    type Item = (usize, usize, bool);
-    type IntoIter = LifeGameIter<'a>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter(None)
-    }
-}
-
-impl<'a> Iterator for LifeGameIter<'a> {
+impl<'a> Iterator for LifeGameIterBool<'a> {
     type Item = (usize, usize, bool);
     fn next (&mut self) -> Option<(usize, usize, bool)> {
         loop {
@@ -279,8 +311,31 @@ impl<'a> Iterator for LifeGameIter<'a> {
             let pos = self.pos;
             self.pos += 1;
 
-            let cell = self.game.world[pos] == 1;
-            if (self.live == None) || (self.live == Some(cell)) {
+            let live = self.game.world[pos] > 0;
+            if (self.live == None) || (self.live == Some(live)) {
+                let x = pos % self.game.width();
+                let y = pos / self.game.width();
+
+                return Some((x, y, live));
+            }
+        }
+    }
+}
+
+impl<'a> Iterator for LifeGameIterU8<'a> {
+    type Item = (usize, usize, u8);
+    fn next (&mut self) -> Option<(usize, usize, u8)> {
+        loop {
+            if self.pos >= self.max {
+                return None;
+            }
+
+            let pos = self.pos;
+            self.pos += 1;
+
+            let cell = self.game.world[pos];
+            let live = cell > 0;
+            if (self.live == None) || (self.live == Some(live)) {
                 let x = pos % self.game.width();
                 let y = pos / self.game.width();
 
@@ -861,6 +916,114 @@ mod tests {
         let mut iter = game.iter(Some(false));
         assert_eq!(iter.next(), Some((1,0,false)));
         assert_eq!(iter.next(), Some((0,1,false)));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn iter_as_u8() {
+        /*
+         *  1 1 . 1 .      1 2 . 1 .
+         *  . . 1 . .  ->  . . 3 . .
+         *  . . 1 . .      . . 1 . .
+         *  . . . . .      . . . . .
+         */
+        let mut game = LifeGame::new(5, 4);
+        game.set(0, 0, true);
+        game.set(1, 0, true);
+        game.set(3, 0, true);
+        game.set(2, 1, true);
+        game.set(2, 2, true);
+
+        let mut iter = game.iter_as_u8(None);
+        assert_eq!(iter.next(), Some((0,0,1)));
+        assert_eq!(iter.next(), Some((1,0,2)));
+        assert_eq!(iter.next(), Some((2,0,0)));
+        assert_eq!(iter.next(), Some((3,0,1)));
+        assert_eq!(iter.next(), Some((4,0,0)));
+
+        assert_eq!(iter.next(), Some((0,1,0)));
+        assert_eq!(iter.next(), Some((1,1,0)));
+        assert_eq!(iter.next(), Some((2,1,3)));
+        assert_eq!(iter.next(), Some((3,1,0)));
+        assert_eq!(iter.next(), Some((4,1,0)));
+
+        assert_eq!(iter.next(), Some((0,2,0)));
+        assert_eq!(iter.next(), Some((1,2,0)));
+        assert_eq!(iter.next(), Some((2,2,1)));
+        assert_eq!(iter.next(), Some((3,2,0)));
+        assert_eq!(iter.next(), Some((4,2,0)));
+
+        assert_eq!(iter.next(), Some((0,3,0)));
+        assert_eq!(iter.next(), Some((1,3,0)));
+        assert_eq!(iter.next(), Some((2,3,0)));
+        assert_eq!(iter.next(), Some((3,3,0)));
+        assert_eq!(iter.next(), Some((4,3,0)));
+
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn iter_as_u8_filter_live_true() {
+        /*
+         *  1 1 . 1 .      1 2 . 1 .
+         *  . . 1 . .  ->  . . 3 . .
+         *  . . 1 . .      . . 1 . .
+         *  . . . . .      . . . . .
+         */
+        let mut game = LifeGame::new(5, 4);
+        game.set(0, 0, true);
+        game.set(1, 0, true);
+        game.set(3, 0, true);
+        game.set(2, 1, true);
+        game.set(2, 2, true);
+
+        let mut iter = game.iter_as_u8(Some(true));
+        assert_eq!(iter.next(), Some((0,0,1)));
+        assert_eq!(iter.next(), Some((1,0,2)));
+        assert_eq!(iter.next(), Some((3,0,1)));
+
+        assert_eq!(iter.next(), Some((2,1,3)));
+
+        assert_eq!(iter.next(), Some((2,2,1)));
+
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn iter_as_u8_filter_live_false() {
+        /*
+         *  1 1 . 1 .      1 2 . 1 .
+         *  . . 1 . .  ->  . . 3 . .
+         *  . . 1 . .      . . 1 . .
+         *  . . . . .      . . . . .
+         */
+        let mut game = LifeGame::new(5, 4);
+        game.set(0, 0, true);
+        game.set(1, 0, true);
+        game.set(3, 0, true);
+        game.set(2, 1, true);
+        game.set(2, 2, true);
+
+        let mut iter = game.iter_as_u8(Some(false));
+        assert_eq!(iter.next(), Some((2,0,0)));
+        assert_eq!(iter.next(), Some((4,0,0)));
+
+        assert_eq!(iter.next(), Some((0,1,0)));
+        assert_eq!(iter.next(), Some((1,1,0)));
+        assert_eq!(iter.next(), Some((3,1,0)));
+        assert_eq!(iter.next(), Some((4,1,0)));
+
+        assert_eq!(iter.next(), Some((0,2,0)));
+        assert_eq!(iter.next(), Some((1,2,0)));
+        assert_eq!(iter.next(), Some((3,2,0)));
+        assert_eq!(iter.next(), Some((4,2,0)));
+
+        assert_eq!(iter.next(), Some((0,3,0)));
+        assert_eq!(iter.next(), Some((1,3,0)));
+        assert_eq!(iter.next(), Some((2,3,0)));
+        assert_eq!(iter.next(), Some((3,3,0)));
+        assert_eq!(iter.next(), Some((4,3,0)));
+
         assert_eq!(iter.next(), None);
     }
 }
