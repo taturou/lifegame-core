@@ -231,21 +231,11 @@ impl LifeGame {
         self.world.iter().fold(0, |sum, &live| sum + (live as usize))
     }
 
-    pub fn iter(&self) -> LifeGameIter {
+    pub fn iter(&self, live: Option<bool>) -> LifeGameIter {
         let iter = LifeGameIter {
                         pos: 0,
                         max: self.width() * self.height(),
-                        live: None,
-                        game: self
-                    };
-        iter
-    }
-
-    pub fn iter_filter_live(&self, live: bool) -> LifeGameIter {
-        let iter = LifeGameIter {
-                        pos: 0,
-                        max: self.width() * self.height(),
-                        live: Some(live),
+                        live: live,
                         game: self
                     };
         iter
@@ -274,7 +264,7 @@ impl<'a> IntoIterator for &'a LifeGame {
     type Item = (usize, usize, bool);
     type IntoIter = LifeGameIter<'a>;
     fn into_iter(self) -> Self::IntoIter {
-        self.iter()
+        self.iter(None)
     }
 }
 
@@ -842,7 +832,7 @@ mod tests {
         game.set(0, 0, true);
         game.set(1, 1, true);
 
-        let mut iter = game.iter();
+        let mut iter = game.iter(None);
         assert_eq!(iter.next(), Some((0,0,true)));
         assert_eq!(iter.next(), Some((1,0,false)));
         assert_eq!(iter.next(), Some((0,1,false)));
@@ -856,7 +846,7 @@ mod tests {
         game.set(0, 0, true);
         game.set(1, 1, true);
 
-        let mut iter = game.iter_filter_live(true);
+        let mut iter = game.iter(Some(true));
         assert_eq!(iter.next(), Some((0,0,true)));
         assert_eq!(iter.next(), Some((1,1,true)));
         assert_eq!(iter.next(), None);
@@ -868,7 +858,7 @@ mod tests {
         game.set(0, 0, true);
         game.set(1, 1, true);
 
-        let mut iter = game.iter_filter_live(false);
+        let mut iter = game.iter(Some(false));
         assert_eq!(iter.next(), Some((1,0,false)));
         assert_eq!(iter.next(), Some((0,1,false)));
         assert_eq!(iter.next(), None);
